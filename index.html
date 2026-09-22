@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LogicLab — Digital Electronics Laboratory</title>
+<meta name="description" content="An interactive 3D digital electronics logic gate simulator." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          /* light chrome */
+          paper:   '#f7f6f2',
+          card:    '#ffffff',
+          card2:   '#f1efe9',
+          ink:     '#1c2128',
+          ink2:    '#4b5563',
+          ink3:    '#8a8f98',
+          hair:    '#e3e1d8',
+          hair2:   '#d3d0c4',
+          accent:  '#0e7490',
+          signal:  '#059669',
+          ledred:  '#dc2626',
+          /* dark 3D viewport */
+          labdeep:  '#0b0f18',
+          labpanel: '#111826',
+          labline:  'rgba(148,178,214,0.16)',
+        },
+        fontFamily: {
+          display: ['"Space Grotesk"', 'sans-serif'],
+          body:    ['"Inter"', 'sans-serif'],
+          mono:    ['"IBM Plex Mono"', 'monospace'],
+        },
+      },
+    },
+  };
+</script>
+
+<link rel="stylesheet" href="style.css" />
+</head>
+<body class="bg-paper text-ink font-body antialiased overflow-x-hidden">
+
+<div class="fixed bottom-2 left-2 z-[999] font-mono text-[10px] tracking-wide text-ink3 bg-card border border-hair rounded px-2 py-1 pointer-events-none select-none">
+  LogicLab · v6 · fixed page isolation + history
+</div>
+
+<!-- Full-screen transition played when entering a gate's lab -->
+<div id="lab-transition" class="fixed inset-0 z-[600] hidden items-center justify-center bg-labdeep">
+  <div class="text-center px-6">
+    <svg viewBox="0 0 120 120" class="w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-5" aria-hidden="true">
+      <circle cx="60" cy="60" r="18" fill="none" stroke="#0e7490" stroke-width="2" class="ring ring-1"/>
+      <circle cx="60" cy="60" r="34" fill="none" stroke="#0e7490" stroke-width="1.4" opacity="0.6" class="ring ring-2"/>
+      <circle cx="60" cy="60" r="50" fill="none" stroke="#0e7490" stroke-width="1" opacity="0.35" class="ring ring-3"/>
+      <circle cx="60" cy="60" r="5" fill="#34d399" class="core-dot"/>
+    </svg>
+    <p id="lab-transition-text" class="font-mono text-xs sm:text-sm text-slate-300 tracking-[0.2em] uppercase">Initializing lab</p>
+  </div>
+</div>
+
+<noscript>
+  <div class="fixed inset-0 z-[999] flex flex-col items-center justify-center gap-3 bg-paper text-center p-8">
+    <h1 class="font-display text-xl text-ink">JavaScript required</h1>
+    <p class="text-ink2 max-w-xs">LogicLab needs JavaScript enabled to run the circuit simulation.</p>
+  </div>
+</noscript>
+
+<div id="engine-error" class="fixed inset-0 z-[999] hidden bg-paper text-center p-8">
+  <h1 class="font-display text-xl text-ink">3D engine failed to load</h1>
+  <p class="text-ink2 max-w-xs mx-auto mt-2">LogicLab couldn't load Three.js from the CDN. Check your internet connection and reload the page.</p>
+</div>
+
+<div class="fixed inset-0 z-0 pointer-events-none bg-[radial-gradient(1100px_620px_at_12%_-10%,rgba(14,116,144,0.06),transparent_60%),radial-gradient(900px_600px_at_100%_10%,rgba(5,150,105,0.05),transparent_55%)]" aria-hidden="true"></div>
+
+<!-- ======================================================= -->
+<!-- PAGE 1 — LANDING (ends at the CTA, nothing below it)      -->
+<!-- ======================================================= -->
+<main id="page-landing" class="page relative min-h-screen w-full flex flex-col" data-page>
+
+  <header class="relative z-10 flex items-center px-6 sm:px-10 lg:px-16 pt-6">
+    <div class="flex items-center gap-3">
+      <span class="grid place-items-center w-[38px] h-[38px] rounded-[8px] text-accent bg-accent/10 border border-hair" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 12h4M16 12h4M9 12a3 3 0 1 1 6 0 3 3 0 0 1-6 0Z" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>
+      </span>
+      <div class="flex flex-col leading-tight">
+        <span class="font-display font-bold text-lg text-ink">LogicLab</span>
+        <span class="text-[11px] text-ink3 tracking-wide">Digital Electronics Laboratory</span>
+      </div>
+    </div>
+  </header>
+
+  <svg class="absolute inset-0 w-full h-full z-0 opacity-70" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <g fill="none" stroke="#e3e1d8" stroke-width="1.4">
+      <path d="M0 120 H320 V260 H620 V90 H980 V340 H1440" />
+      <path d="M0 480 H180 V620 H540 V520 H860 V760 H1160 V600 H1440" />
+      <path d="M0 780 H260 V860 H700" />
+      <path d="M120 0 V180 H460 V420" />
+      <path d="M1440 200 H1160 V60" />
+    </g>
+    <g fill="#0e7490" opacity="0.28">
+      <circle cx="320" cy="120" r="4"/>
+      <circle cx="620" cy="260" r="4"/>
+      <circle cx="980" cy="90" r="4"/>
+      <circle cx="180" cy="480" r="4"/>
+      <circle cx="540" cy="620" r="4"/>
+      <circle cx="860" cy="520" r="4"/>
+      <circle cx="1160" cy="600" r="4"/>
+    </g>
+  </svg>
+
+  <section class="relative z-10 flex-1 grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-10 items-center max-w-6xl mx-auto w-full px-6 sm:px-10 lg:px-16 py-12">
+
+    <div>
+      <p class="font-mono text-sm text-accent mb-4">Virtual electronics workspace</p>
+      <h1 class="font-display font-bold leading-[0.98] tracking-tight text-[2.75rem] sm:text-[3.75rem] lg:text-[4.75rem] mb-6 text-ink">
+        <span class="block">Build.</span>
+        <span class="block text-accent">Connect.</span>
+        <span class="block">Understand.</span>
+      </h1>
+      <p class="text-base sm:text-lg text-ink2 max-w-lg leading-relaxed mb-8">
+        Explore digital logic gates through an interactive virtual electronics
+        laboratory — wire real components, flip real switches, and watch the
+        logic play out in three dimensions.
+      </p>
+      <button id="btn-enter-lab" type="button"
+        class="inline-flex items-center gap-2 font-display font-semibold text-base rounded-md px-7 py-4
+               bg-ink text-paper border border-ink
+               hover:bg-accent hover:border-accent
+               active:translate-y-px transition w-fit mb-8">
+        Enter digital lab
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+
+    <div class="relative hidden lg:block">
+      <div class="bg-card border border-hair rounded-lg shadow-sm p-5">
+        <div class="flex items-center justify-between mb-4">
+          <span class="font-mono text-[11px] tracking-widest uppercase text-ink3">Bench preview</span>
+          <span class="font-mono text-[11px] text-signal border border-signal/30 bg-signal/10 rounded px-2 py-0.5">LIVE</span>
+        </div>
+        <svg viewBox="0 0 340 220" class="w-full h-auto">
+          <rect x="10" y="20" width="320" height="150" rx="6" fill="#ede8da" stroke="#d3d0c4" stroke-width="1.5"/>
+          <line x1="24" y1="45" x2="316" y2="45" stroke="#d94b4b" stroke-width="2"/>
+          <line x1="24" y1="53" x2="316" y2="53" stroke="#2d64c9" stroke-width="2"/>
+          <g fill="#2b2a26" opacity="0.55">
+            <circle cx="40" cy="72" r="2"/><circle cx="60" cy="72" r="2"/><circle cx="80" cy="72" r="2"/><circle cx="100" cy="72" r="2"/>
+            <circle cx="240" cy="72" r="2"/><circle cx="260" cy="72" r="2"/><circle cx="280" cy="72" r="2"/><circle cx="300" cy="72" r="2"/>
+            <circle cx="40" cy="140" r="2"/><circle cx="60" cy="140" r="2"/><circle cx="80" cy="140" r="2"/><circle cx="100" cy="140" r="2"/>
+            <circle cx="240" cy="140" r="2"/><circle cx="260" cy="140" r="2"/><circle cx="280" cy="140" r="2"/><circle cx="300" cy="140" r="2"/>
+          </g>
+          <rect x="135" y="88" width="70" height="34" rx="3" fill="#14161c"/>
+          <text x="170" y="109" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#e7ecf3">7408</text>
+          <circle cx="50" cy="105" r="9" fill="#059669"/>
+          <text x="50" y="108" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="#ffffff">A</text>
+          <circle cx="80" cy="105" r="9" fill="#94a3b8"/>
+          <text x="80" y="108" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="#ffffff">B</text>
+          <circle cx="286" cy="105" r="8" fill="#ff3b4e"/>
+          <path d="M50 105 H135 M80 113 V123 H135" fill="none" stroke="#059669" stroke-width="2"/>
+          <path d="M205 105 H286" fill="none" stroke="#ff3b4e" stroke-width="2"/>
+        </svg>
+        <div class="grid grid-cols-3 gap-2 mt-4 font-mono text-xs">
+          <div class="bg-card2 border border-hair rounded px-2 py-1.5 text-center"><span class="text-ink3 block text-[10px]">A</span><span class="text-signal font-semibold">1</span></div>
+          <div class="bg-card2 border border-hair rounded px-2 py-1.5 text-center"><span class="text-ink3 block text-[10px]">B</span><span class="text-ink3 font-semibold">0</span></div>
+          <div class="bg-card2 border border-hair rounded px-2 py-1.5 text-center"><span class="text-ink3 block text-[10px]">Y</span><span class="text-ink3 font-semibold">0</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ======================================================= -->
+<!-- PAGE 2 — GATE SELECTION (all 7 gates active)              -->
+<!-- ======================================================= -->
+<main id="page-select" class="page relative min-h-screen w-full" data-page hidden>
+
+  <header class="relative z-10 flex items-center justify-between px-6 sm:px-10 lg:px-16 py-4 border-b border-hair bg-paper/80 backdrop-blur">
+    <button id="btn-back-to-landing" type="button"
+      class="inline-flex items-center gap-2 text-sm text-ink2 hover:text-ink transition px-2 py-2">
+      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      LogicLab
+    </button>
+  </header>
+
+  <section class="relative z-10 px-6 sm:px-10 lg:px-16 pt-10 sm:pt-16 pb-6">
+    <h2 class="font-display font-bold text-3xl sm:text-4xl mb-2 text-ink">Select a logic gate</h2>
+    <p class="text-ink2 max-w-xl">Choose a digital logic gate to enter its virtual laboratory.</p>
+  </section>
+
+  <section id="gate-grid" class="relative z-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 px-6 sm:px-10 lg:px-16 pb-20">
+
+    <article data-gate="AND" tabindex="0" role="button" aria-label="Open AND gate laboratory"
+      class="gate-card group relative bg-card border border-hair rounded-lg p-6 flex flex-col gap-4 min-h-[190px]
+             cursor-pointer transition hover:-translate-y-0.5 hover:border-accent hover:shadow-sm">
+      <div class="w-[52px] text-accent" aria-hidden="true">
+        <svg viewBox="0 0 64 48"><path d="M8 6h16a18 18 0 0 1 0 36H8Z" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M2 16h6M2 32h6M50 24h12" stroke="currentColor" stroke-width="2.2"/></svg>
+      </div>
+      <div>
+        <h3 class="font-display text-xl mb-1 text-ink">AND</h3>
+        <p class="text-sm text-ink2 leading-relaxed">Output is HIGH only when all inputs are HIGH.</p>
+      </div>
+      <span class="gate-badge self-start font-mono text-xs tracking-wide rounded px-2.5 py-1 bg-signal/10 text-signal border border-signal/30">Available</span>
+    </article>
+
+    <article data-gate="OR" tabindex="0" role="button" aria-label="Open OR gate laboratory"
+      class="gate-card group relative bg-card border border-hair rounded-lg p-6 flex flex-col gap-4 min-h-[190px]
+             cursor-pointer transition hover:-translate-y-0.5 hover:border-accent hover:shadow-sm">
+      <div class="w-[52px] text-accent" aria-hidden="true">
+        <svg viewBox="0 0 64 48"><path d="M6 6q20 0 26 18Q26 42 6 42q10-18 0-36Z" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M2 16h5M2 32h5M50 24h12" stroke="currentColor" stroke-width="2.2"/></svg>
+      </div>
+      <div>
+        <h3 class="font-display text-xl mb-1 text-ink">OR</h3>
+        <p class="text-sm text-ink2 leading-relaxed">Output is HIGH when at least one input is HIGH.</p>
+      </div>
+      <span class="gate-badge self-start font-mono text-xs tracking-wide rounded px-2.5 py-1 bg-signal/10 text-signal border border-signal/30">Available</span>
+    </article>
+
+    <article data-gate="NOT" tabindex="0" role="button" aria-label="Open NOT gate laboratory"
+      class="gate-card group relative bg-card border border-hair rounded-lg p-6 flex flex-col gap-4 min-h-[190px]
+             cursor-pointer transition hover:-translate-y-0.5 hover:border-accent hover:shadow-sm">
+      <div class="w-[52px] text-accent" aria-hidden="true">
+        <svg viewBox="0 0 64 48"><path d="M8 6 42 24 8 42Z" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="46" cy="24" r="3.4" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M2 24h6M52 24h10" stroke="currentColor" stroke-width="2.2"/></svg>
+      </div>
+      <div>
+        <h3 class="font-display text-xl mb-1 text-ink">NOT</h3>
+        <p class="text-sm text-ink2 leading-relaxed">Inverts the input signal.</p>
+      </div>
+      <span class="gate-badge self-start font-mono text-xs tracking-wide rounded px-2.5 py-1 bg-signal/10 text-signal border border-signal/30">Available</span>
+    </article>
+
+    <article data-gate="NAND" tabindex="0" role="button" aria-label="Open NAND gate laboratory"
+      class="gate-card group relative bg-card border border-hair rounded-lg p-6 flex flex-col gap-4 min-h-[190px]
+             cursor-pointer transition hover:-translate-y-0.5 hover:border-accent hover:shadow-sm">
+      <div class="w-[52px] text-accent" aria-hidden="true">
+        <svg viewBox="0 0 64 48"><path d="M8 6h14a18 18 0 0 1 0 36H8Z" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="46.4" cy="24" r="3.4" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M2 16h6M2 32h6M50 24h12" stroke="currentColor" stroke-width="2.2"/></svg>
+      </div>
+      <div>
+        <h3 class="font-display text-xl mb-1 text-ink">NAND</h3>
+        <p class="text-sm text-ink2 leading-relaxed">Inverted AND — LOW only when all inputs are HIGH.</p>
+      </div>
+      <span class="gate-badge self-start font-mono text-xs tracking-wide rounded px-2.5 py-1 bg-signal/10 text-signal border border-signal/30">Available</span>
+    </article>
+
+    <article data-gate="NOR" tabindex="0" role="button" aria-label="Open NOR gate laboratory"
+      class="gate-card group relative bg-card border border-hair rounded-lg p-6 flex flex-col gap-4 min-h-[190px]
+             cursor-pointer transition hover:-translate-y-0.5 hover:border-accent hover:shadow-sm">
+      <div class="w-[52px] text-accent" aria-hidden="true">
+        <svg viewBox="0 0 64 48"><path d="M6 6q20 0 26 18Q26 42 6 42q10-18 0-36Z" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="35.6" cy="24" r="3.4" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M2 16h5M2 32h5M50 24h12" stroke="currentColor" stroke-width="2.2"/></svg>
+      </div>
+      <div>
+        <h3 class="font-display text-xl mb-1 text-ink">NOR</h3>
+        <p class="text-sm text-ink2 leading-relaxed">Inverted OR — HIGH only when all inputs are LOW.</p>
+      </div>
+      <span class="gate-badge self-start font-mono text-xs tracking-wide rounded px-2.5 py-1 bg-signal/10 text-signal border border-signal/30">Available</span>
+    </article>
+
+    <article data-gate="XOR" tabindex="0" role="button" aria-label="Open XOR gate laboratory"
+      class="gate-card group relative bg-card border border-hair rounded-lg p-6 flex flex-col gap-4 min-h-[190px]
+             cursor-pointer transition hover:-translate-y-0.5 hover:border-accent hover:shadow-sm">
+      <div class="w-[52px] text-accent" aria-hidden="true">
+        <svg viewBox="0 0 64 48"><path d="M10 6q20 0 26 18Q30 42 10 42q10-18 0-36Z" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M4 6q10 18 0 36" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M2 16h1M2 32h1M50 24h12" stroke="currentColor" stroke-width="2.2"/></svg>
+      </div>
+      <div>
+        <h3 class="font-display text-xl mb-1 text-ink">XOR</h3>
+        <p class="text-sm text-ink2 leading-relaxed">HIGH only when the inputs differ.</p>
+      </div>
+      <span class="gate-badge self-start font-mono text-xs tracking-wide rounded px-2.5 py-1 bg-signal/10 text-signal border border-signal/30">Available</span>
+    </article>
+
+    <article data-gate="XNOR" tabindex="0" role="button" aria-label="Open XNOR gate laboratory"
+      class="gate-card group relative bg-card border border-hair rounded-lg p-6 flex flex-col gap-4 min-h-[190px]
+             cursor-pointer transition hover:-translate-y-0.5 hover:border-accent hover:shadow-sm">
+      <div class="w-[52px] text-accent" aria-hidden="true">
+        <svg viewBox="0 0 64 48"><path d="M10 6q20 0 26 18Q30 42 10 42q10-18 0-36Z" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M4 6q10 18 0 36" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="39.6" cy="24" r="3.4" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M2 16h1M2 32h1M50 24h8" stroke="currentColor" stroke-width="2.2"/></svg>
+      </div>
+      <div>
+        <h3 class="font-display text-xl mb-1 text-ink">XNOR</h3>
+        <p class="text-sm text-ink2 leading-relaxed">HIGH only when the inputs match.</p>
+      </div>
+      <span class="gate-badge self-start font-mono text-xs tracking-wide rounded px-2.5 py-1 bg-signal/10 text-signal border border-signal/30">Available</span>
+    </article>
+  </section>
+</main>
+
+<!-- ======================================================= -->
+<!-- PAGE 3 — 3D GATE LAB (gate-agnostic; rebuilt per gate)    -->
+<!-- ======================================================= -->
+<main id="page-lab" class="page relative w-full h-screen flex flex-col" data-page hidden>
+
+  <header class="relative z-10 flex items-center justify-between gap-2 px-4 sm:px-10 py-3 border-b border-hair bg-paper/90 backdrop-blur shrink-0">
+    <button id="btn-back-to-select" type="button"
+      class="inline-flex items-center gap-2 text-sm text-ink2 hover:text-ink transition px-2 py-2 shrink-0">
+      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="hidden sm:inline">LogicLab</span>
+    </button>
+    <div class="font-mono text-xs sm:text-sm tracking-wide text-ink2 truncate">
+      <span id="lab-gate-name">GATE LAB</span>
+    </div>
+    <button id="btn-reset" type="button"
+      class="font-display font-semibold text-sm rounded-md px-3 sm:px-4 py-2 bg-card border border-hair2 text-ink hover:border-accent hover:text-accent transition shrink-0">
+      Reset
+    </button>
+  </header>
+
+  <div class="relative z-10 flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[1fr_340px] overflow-y-auto lg:overflow-visible">
+
+    <section class="relative bg-labdeep h-[55vh] lg:h-auto" aria-label="3D circuit viewport">
+      <div id="canvas-host" class="absolute inset-0"></div>
+
+      <div id="lab-legend" class="absolute left-2 top-2 sm:left-4 sm:top-4 font-mono text-[10px] sm:text-xs bg-labpanel/85 border border-labline rounded-lg px-3 py-2 sm:px-4 sm:py-3 backdrop-blur text-slate-300 space-y-1 sm:space-y-1.5 pointer-events-none max-w-[210px] sm:max-w-none">
+        <p class="text-slate-400 text-[9px] sm:text-[10px] tracking-widest uppercase mb-1">Component key</p>
+        <p><span class="text-cyan-300">IC</span> <span id="legend-ic">7408</span> — <span id="legend-gate">AND</span> gate</p>
+        <div class="hidden sm:block space-y-1.5">
+          <p><span class="text-emerald-400">●</span> SW A → Pin 1 (input)</p>
+          <p id="legend-pin-b"><span class="text-slate-400">●</span> SW B → Pin 2 (input)</p>
+          <p><span class="text-red-400">●</span> LED → Pin 3 (output)</p>
+        </div>
+      </div>
+
+      <div class="absolute left-1/2 bottom-[18px] -translate-x-1/2 font-mono text-xs text-slate-400 bg-labdeep/70 border border-labline rounded-full px-4 py-2 backdrop-blur pointer-events-none">
+        Drag to rotate · Scroll to zoom · Click switches
+      </div>
+      <div id="webgl-fallback" class="absolute inset-0 hidden text-center p-8 text-slate-400">
+        <p>Your browser doesn't support WebGL, so the 3D circuit can't render here.</p>
+      </div>
+      <div id="lab-loader" class="absolute inset-0 z-[5] flex flex-col items-center justify-center gap-4 bg-labdeep transition-opacity duration-300">
+        <div class="w-9 h-9 rounded-full border-2 border-labline border-t-cyan-400 animate-spin" aria-hidden="true"></div>
+        <p id="lab-loader-text" class="font-mono text-sm text-slate-400 tracking-wide">Powering up the lab bench…</p>
+      </div>
+    </section>
+
+    <aside class="border-t lg:border-t-0 lg:border-l border-hair bg-card p-4 flex flex-col gap-4 lg:overflow-y-auto">
+
+      <div class="bg-card2 border border-hair rounded-lg p-5">
+        <p class="font-mono text-[11px] tracking-widest uppercase text-accent mb-2">Live circuit</p>
+        <h2 id="status-gate-title" class="font-display text-xl mb-4 text-ink">GATE</h2>
+
+        <dl class="flex flex-col gap-2">
+          <div id="row-input-a" class="flex items-center justify-between border-b border-dashed border-hair pb-2">
+            <dt id="label-input-a" class="text-sm text-ink2">Input A</dt>
+            <dd id="status-a" class="value-cell font-mono font-semibold text-base px-2.5 py-0.5 rounded text-ink3 bg-slate-500/10">0</dd>
+          </div>
+          <div id="row-input-b" class="flex items-center justify-between border-b border-dashed border-hair pb-2">
+            <dt class="text-sm text-ink2">Input B</dt>
+            <dd id="status-b" class="value-cell font-mono font-semibold text-base px-2.5 py-0.5 rounded text-ink3 bg-slate-500/10">0</dd>
+          </div>
+          <div class="flex items-center justify-between border-b border-dashed border-hair pb-2">
+            <dt class="text-sm text-ink font-semibold">Output Y</dt>
+            <dd id="status-y" class="value-cell font-mono font-semibold text-base px-2.5 py-0.5 rounded text-ink3 bg-slate-500/10">0</dd>
+          </div>
+          <div class="flex items-center justify-between">
+            <dt class="text-sm text-ink2">LED</dt>
+            <dd id="status-led" class="value-cell font-mono font-semibold text-base px-2.5 py-0.5 rounded text-ink3 bg-slate-500/10">OFF</dd>
+          </div>
+        </dl>
+
+        <div class="mt-4 pt-3 border-t border-hair flex flex-col gap-1">
+          <span id="expr-formula" class="font-mono text-base text-accent">Y = A · B</span>
+          <span id="expr-note" class="text-xs text-ink3 leading-relaxed">Output is HIGH only when both inputs are HIGH.</span>
+        </div>
+      </div>
+
+      <div class="bg-card2 border border-hair rounded-lg p-5">
+        <p class="font-mono text-[11px] tracking-widest uppercase text-accent mb-3">Controls</p>
+        <div class="flex flex-col sm:flex-row gap-3">
+          <button id="switch-a" type="button" aria-pressed="false" aria-label="Toggle input A"
+            class="io-switch flex-1 flex flex-col items-start gap-1.5 bg-card border border-hair rounded-md px-4 py-3.5 cursor-pointer transition hover:border-hair2">
+            <span class="io-switch-led block w-2.5 h-2.5 rounded-full bg-slate-400 transition"></span>
+            <span id="switch-a-label" class="font-display font-semibold text-sm text-ink">Input A</span>
+            <span class="io-switch-state font-mono text-xs text-ink3">0 / LOW</span>
+          </button>
+          <button id="switch-b" type="button" aria-pressed="false" aria-label="Toggle input B"
+            class="io-switch flex-1 flex flex-col items-start gap-1.5 bg-card border border-hair rounded-md px-4 py-3.5 cursor-pointer transition hover:border-hair2">
+            <span class="io-switch-led block w-2.5 h-2.5 rounded-full bg-slate-400 transition"></span>
+            <span class="font-display font-semibold text-sm text-ink">Input B</span>
+            <span class="io-switch-state font-mono text-xs text-ink3">0 / LOW</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="bg-card2 border border-hair rounded-lg p-5">
+        <p class="font-mono text-[11px] tracking-widest uppercase text-accent mb-3">Truth table</p>
+        <table id="truth-table" class="w-full border-collapse font-mono text-sm">
+          <thead><tr></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="bg-card2 border border-hair rounded-lg p-5">
+        <p class="font-mono text-[11px] tracking-widest uppercase text-accent mb-2">IC in socket</p>
+        <p id="ic-label-readout" class="font-mono text-sm text-ink">7408</p>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
